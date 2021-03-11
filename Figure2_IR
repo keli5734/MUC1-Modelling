@@ -1,0 +1,143 @@
+library(rstan)
+library(tidyverse)
+library(bayesplot)
+library(deSolve)
+library(readxl)
+library(wesanderson)
+library(plyr)
+library(latex2exp)
+
+
+Data.plot <- read_excel("Data_plot_IR.xlsx", col_names = "data")
+Data.set <- Data.plot$data
+quantity_length <- 4000
+
+V_AUC <- Data.set[1:(2*quantity_length)]
+V_peak <- Data.set[(2*quantity_length+1):(4*quantity_length)]
+V_peak_time <- Data.set[(4*quantity_length+1):(6*quantity_length)]
+M_AUC <- Data.set[(6*quantity_length+1):(8*quantity_length)]
+R0 <- Data.set[(8*quantity_length+1):(10*quantity_length)]
+r <- Data.set[(10*quantity_length+1):(12*quantity_length)]
+
+Quantity_main <- factor(c("Initial viral replication rate", "Viral load AUC", "Macrophage AUC"),
+                        levels =c("Initial viral replication rate", "Viral load AUC", "Macrophage AUC"))
+
+Quantity_supp <- factor(c("Viral load peak", "Viral load peak time","R0"),
+                        levels =c("Viral load peak", "Viral load peak time","R0"))
+
+Type <- as.character(c("Wild Type", "Knockout"),
+                     levels = c("Wild Type", "Knockout"))
+
+
+
+Data.frame.V_AUC <- data.frame(plot.data = V_AUC,
+                               Group = c(rep(Type, each = quantity_length)))
+V_AUC.median <- ddply(Data.frame.V_AUC, "Group", summarise, grp.median = median(plot.data))
+
+
+ggplot(Data.frame.V_AUC, aes(x=log10(plot.data), color=Group)) +
+  geom_histogram(bins = 80, position="identity", alpha=0.4, fill = "white")+
+  geom_vline(data = V_AUC.median, aes(xintercept = log10(grp.median), color = Group),
+             linetype = 'dashed')+scale_color_brewer(palette="Accent") + 
+  theme_minimal() + theme(text = element_text(size = 30), 
+                          panel.grid.major = element_blank(),
+                          legend.position = "none") + 
+  labs(y = "Frequency") + xlab(TeX("$\\log_{10}(AUC_V)$")) + annotate("Text", x=7.2, y= 400, label= "7.37", parse=FALSE, size = 7) +
+  annotate("Text", x = 7.55, y= 400, label= "7.41", parse=FALSE, size = 7)  + xlim(c(6,9))
+
+
+
+
+Data.frame.r <- data.frame(plot.data = r,
+                           Group = c(rep(Type, each = quantity_length)))
+r.median <- ddply(Data.frame.r, "Group", summarise, grp.median = median(plot.data))
+
+
+ggplot(Data.frame.r, aes(x=plot.data, color=Group)) +
+  geom_histogram(bins = 80, position="identity", alpha=0.4, fill = "white")+
+  geom_vline(data = r.median, aes(xintercept = grp.median, color = Group),
+             linetype = 'dashed')+scale_color_brewer(palette="Accent") + 
+  theme_minimal() + theme(text = element_text(size = 30), 
+                          panel.grid.major = element_blank(),
+                          legend.position = "none") + 
+  labs(y = "Frequency") + xlab(TeX("$\\r$")) +  annotate("Text", x = 3.9, y= 350, label= "4.39", parse=FALSE, size = 7) +
+  annotate("Text", x= 7.7, y= 350, label= "7.13", parse=FALSE, size = 7) + scale_x_continuous(breaks=seq(0,10,2))
+
+
+
+Data.frame.M_AUC <- data.frame(plot.data = M_AUC,
+                               Group = c(rep(Type, each = quantity_length)))
+M_AUC.median <- ddply(Data.frame.M_AUC, "Group", summarise, grp.median = median(plot.data))
+
+
+ggplot(Data.frame.M_AUC, aes(x=log10(plot.data), color=Group)) +
+  geom_histogram(bins = 80, position="identity", alpha=0.4, fill = "white")+
+  geom_vline(data = M_AUC.median, aes(xintercept = log10(grp.median), color = Group),
+             linetype = 'dashed')+scale_color_brewer(palette="Accent") + 
+  theme_minimal() + theme(text = element_text(size = 30), 
+                          panel.grid.major = element_blank(),
+                          legend.position = "none") + 
+  labs(y = "Frequency") + xlab(TeX("$\\log_{10}(AUC_M)$")) + annotate("Text", x=7.54, y= 800, label= "7.59", parse=FALSE, size = 7) +
+  annotate("Text", x=7.82, y= 800, label= "7.82", parse=FALSE, size = 7) + xlim(c(6.5, 8.5)) 
+
+
+
+
+
+Data.frame.R0 <- data.frame(plot.data = R0,
+                            Group = c(rep(Type, each = quantity_length)))
+R0.median <- ddply(Data.frame.R0, "Group", summarise, grp.median = median(plot.data))
+
+
+ggplot(Data.frame.R0, aes(x=plot.data, color=Group)) +
+  geom_histogram(bins = 80, position="identity", alpha=0.4, fill = "white")+
+  geom_vline(data = R0.median, aes(xintercept = grp.median, color = Group),
+             linetype = 'dashed')+scale_color_brewer(palette="Accent") + 
+  theme_minimal() + theme(text = element_text(size = 30), 
+                          panel.grid.major = element_blank()) + 
+  labs(y = "Frequency") + xlab(TeX("$\\R_0$")) +  annotate("Text", x=25, y= 600, label= "26.4", parse=FALSE, size = 7) +
+  annotate("Text", x=47, y= 600, label= "45.6", parse=FALSE, size = 7) + xlim(c(0,100))
+
+
+
+
+Data.frame.V_peak <- data.frame(plot.data = V_peak,
+                                Group = c(rep(Type, each = quantity_length)))
+V_peak.median <- ddply(Data.frame.V_peak, "Group", summarise, grp.median = median(plot.data))
+
+
+ggplot(Data.frame.V_peak, aes(x=log10(plot.data), color=Group)) +
+  geom_histogram(bins = 80, position="identity", alpha=0.4, fill = "white")+
+  geom_vline(data = V_peak.median, aes(xintercept = log10(grp.median), color = Group),
+             linetype = 'dashed')+scale_color_brewer(palette="Accent") + 
+  theme_minimal() + theme(text = element_text(size = 30), 
+                          panel.grid.major = element_blank()) + 
+  labs(x = "log10(Peak viral load)",y = "Frequency")+ annotate("Text", x=5.75, y= 300, label= "5.62", parse=FALSE, size = 7) +
+  annotate("Text", x=5.45, y= 300, label= "5.58", parse=FALSE, size = 7) + xlim(c(4.5,6.5))
+
+
+
+
+
+Data.frame.V_peak_time <- data.frame(plot.data = V_peak_time,
+                                     Group = c(rep(Type, each = quantity_length)))
+V_peak_time.median <- ddply(Data.frame.V_peak_time, "Group", summarise, grp.median = median(plot.data))
+
+
+ggplot(Data.frame.V_peak_time, aes(x=plot.data, color=Group)) +
+  geom_histogram(bins = 80, position="identity", alpha=0.4, fill = "white")+
+  geom_vline(data = V_peak_time.median, aes(xintercept = grp.median, color = Group),
+             linetype = 'dashed')+scale_color_brewer(palette="Accent") + 
+  theme_minimal() + theme(text = element_text(size = 30), 
+                          panel.grid.major = element_blank(),
+                          legend.position = "none") + 
+  labs(x = "Peak viral load time", y = "Frequency") +  annotate("Text", x= 2.2, y= 800, label= "2.08", parse=FALSE, size = 7) +
+  annotate("Text", x= 3.5, y= 800, label= "3.33", parse=FALSE, size = 7) +  xlim(c(0,10))
+
+
+
+
+
+
+df <- data.frame(R0 = R0, AUC_M = M_AUC, AUC_V = V_AUC)
+pairs(df, upper.panel = upper.panel, lower.panel = NULL)
