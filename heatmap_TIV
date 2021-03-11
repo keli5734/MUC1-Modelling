@@ -1,0 +1,194 @@
+library(readxl)
+library(wesanderson)
+library(dplyr)
+library(latex2exp)
+library(lattice)
+library(RColorBrewer)
+library(hrbrthemes)
+library(viridisLite)
+library(ggplot2)
+library(tibble)
+library(tidyr)
+
+
+library(sp)
+
+library(gridExtra)
+library(latticeExtra)
+
+library(gtable)
+
+M_AUC.plot <- read_excel("M_AUC_TIV.xlsx", col_names = as.character(seq(1,100,1)))
+data_TIV <- as.matrix(M_AUC.plot)
+
+posterior_table_TIV <- read_excel("Posteriors_TIV.xls")
+posterior_epsilon1 <- posterior_table_TIV$theta_WT.1
+posterior_epsilon2 <- posterior_table_TIV$theta_WT.7
+
+epsilon1 <- c(seq(quantile(posterior_epsilon1,0.025), quantile(posterior_epsilon1,0.975), length.out = 100))
+epsilon2 <- c(seq(quantile(posterior_epsilon2,0.025), quantile(posterior_epsilon2,0.975), length.out = 100))
+
+
+expand_data <- M_AUC.plot %>%
+  
+  # Data wrangling
+  as_tibble() %>%
+  rowid_to_column(var="X") %>%
+  gather(key="Y", value="Z", -1) %>%
+  
+  # Change Y to numeric
+  mutate(Y=as.numeric(gsub("V","",Y)))
+
+data <- expand.grid(X = epsilon1, Y = epsilon2)
+data$Z <- expand_data$Z
+
+
+coul <- viridis(100)
+coul2 <-  colorRampPalette(brewer.pal(8, "PiYG"))(25)
+ckey <- list(labels=list(cex=1.5))
+
+brks = seq(0,1,length.out = 11)
+ckey2 <- list(at = brks, labels = list(labels = c(0.1,0.2,0.3,0.4,0.5,0.6, 0.7), cex = 1.5))
+
+
+
+
+  
+
+
+x1 <- round(quantile(posterior_epsilon1, 0.025), 2)
+x2 <- round(quantile(posterior_epsilon1, 0.975), 2)
+y1 <- round(quantile(posterior_epsilon2, 0.025), 2)
+y2 <- round(quantile(posterior_epsilon2, 0.975), 2)
+
+x_seq <- round(seq(x1, x2, length.out = 6), 1)
+y_seq <- round(seq(y1, y2, length.out = 6), 1)
+
+ 
+
+m <- median(posterior_epsilon1)
+n <- median(posterior_epsilon2)
+name <- c("Median values")
+dummy <- data.frame(m, n, name)
+coordinates(dummy) <- ~ m + n
+
+
+# Create SpatialPoints
+SP <- SpatialPoints(coords = cbind(m,n))
+
+# Add label variable
+SP$ID <- paste("(0.44, 0.45)", sep = "")
+
+# Plot
+labels <- layer(sp.text(coordinates(SP), txt = SP$ID, pos = 1))
+
+
+
+p1 <- levelplot(Z ~ X*Y, data = data, 
+          scales=list(x=list(cex=1.2), 
+                      y=list(cex=1.2)),
+          xlab= list(label=TeX("$\\epsilon_1$"), cex=1.5),
+          ylab= list(label=TeX("$\\epsilon_2$"), cex=1.5),
+          #main = list(label="TIV", cex=2),
+          col.regions = coul2,
+          colorkey=ckey2,
+          cuts = 10, contour = TRUE,
+          region = TRUE) +
+          layer(sp.points(dummy, cex = 1.5, col = 1, pch = 16)) + 
+          layer(panel.arrows(m, n, m+0.01, n+0.15, 
+                     col = 'black',
+                     cex = 3)) + 
+          labels
+   p1           
+
+   
+   
+   
+   
+   
+epsilon.data.frame <- data.frame(epsilon1 = posterior_epsilon1,
+                                 epsilon2 = posterior_epsilon2)
+
+p_epsilon1 <- ggplot(epsilon.data.frame, aes(x = epsilon1)) + 
+  geom_histogram(breaks=seq(0,1,1/50),aes(y = ..density..), colour="black", fill="white") + 
+  geom_vline(aes(xintercept=quantile(epsilon1, 0.025)),
+             linetype="dashed",color = 'red') + 
+  geom_vline(aes(xintercept=quantile(epsilon1, 0.5)),
+             linetype="solid",color = 'red') + 
+  geom_vline(aes(xintercept=quantile(epsilon1, 0.975)),
+             linetype="dashed",color = 'red') + 
+  lims(x = c(0,1)) + 
+  theme_classic() + 
+  theme(text = element_text(size=20)) + 
+  xlab(TeX("$\\epsilon_1$"))  +  theme(legend.position = "none")# + scale_y_continuous(position = "right")
+
+
+p_epsilon2 <- ggplot(epsilon.data.frame, aes(x = epsilon2)) + 
+  geom_histogram(breaks=seq(0,1,1/50),aes(y = ..density..), colour="black", fill="white") + 
+  geom_vline(aes(xintercept=quantile(epsilon2, 0.025)),
+             linetype="dashed",color = 'red') + 
+  geom_vline(aes(xintercept=quantile(epsilon2, 0.5)),
+             linetype="solid",color = 'red') + 
+  geom_vline(aes(xintercept=quantile(epsilon2, 0.975)),
+             linetype="dashed",color = 'red') + 
+  lims(x = c(0,1)) + 
+  theme_classic() + 
+  theme(text = element_text(size=20)) + 
+  xlab(TeX("$\\epsilon_2$"))  +  theme(legend.position = "none")# + coord_flip()
+
+p_epsilon2
+
+grid.arrange(
+  grobs = list(p1,p_epsilon1,p_epsilon2),
+  ncol = 4,
+  nrow = 4,
+  layout_matrix = rbind(c(NA,1,1,NA),
+                        c(NA,1,1,NA),
+                        c(2,2,3,3),
+                        c(2,2,3,3))
+)
+
+
+grid.arrange(
+  grobs = list(p1,p_epsilon1,p_epsilon2),
+  nrow = 4,
+  ncol = 2,
+  layout_matrix = rbind(c(2,3),
+                        c(1,1),
+                        c(1,1),
+                        c(1,1)),
+  hjust = 1
+)
+
+
+
+
+
+epsilon.data.frame2 <- data.frame(epsilon = c(posterior_epsilon1, posterior_epsilon2),
+                                  parameters = rep(c("epsilon1", "epsilon2"), each = length(posterior_epsilon1)))
+
+Epsilon.median <- epsilon.data.frame2 %>%
+  group_by(parameters) %>%
+  summarise(Median = median(epsilon),
+            Low = quantile(epsilon,0.025),
+            High = quantile(epsilon, 0.975))
+
+parameter.lab <- c( TeX("$\\epsilon_1$"), TeX("$\\epsilon_2$") )
+names(parameter.lab) <-  c( "epsilon1", "epsilon2" )
+
+
+  
+p_epsilon <- ggplot(epsilon.data.frame2, aes(x = epsilon)) + 
+  geom_histogram(breaks=seq(0,1,1/50),aes(y = ..density..), colour="black", fill="white") + 
+  geom_vline(data = Epsilon.median, aes(xintercept = Median), linetype = "dashed", color = "red") +
+  geom_vline(data = Epsilon.median, aes(xintercept = Low), linetype = "dashed", color = "red") +
+  geom_vline(data = Epsilon.median, aes(xintercept = High), linetype = "dashed", color = "red") +
+  facet_wrap(~ parameters, nrow = 2, scales = "free", labeller = labeller(parameter.lab)) + 
+  lims(x = c(0,1)) + 
+  theme_classic() + 
+  theme(text = element_text(size=20)) + 
+  xlab(TeX("$\\epsilon$"))  +  theme(legend.position = "none")# + scale_y_continuous(position = "right")
+p_epsilon
+
+grid.arrange(p1, p_epsilon, widths = c(4,1.5))
+
